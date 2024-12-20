@@ -1,8 +1,12 @@
 import { readFileSync } from "node:fs";
 
-const input = readFileSync("./test.txt", "utf8").split("\n");
+const input = readFileSync("./input.txt", "utf8").split("\n");
 
 const map = input.slice(0, input.length - 1).map((x) => x.split(""));
+
+const rows = map.length;
+
+const cols = map[0].length;
 
 const startingPos = map.reduce(
   (pos, row, i) => {
@@ -13,16 +17,17 @@ const startingPos = map.reduce(
   { x: null, y: null },
 );
 
-const patrol = (_map, { x, y }, dir) => {
-  let patrolledMap = [..._map];
-  patrolledMap[y][x] = "X";
+async function patrol(map, { x, y }, dir) {
+  map[y][x] = "X";
 
   const inFront = {
-    up: (map) => (y - 1 >= 0 ? map[y - 1][x] : "e"),
-    right: (map) => (x + 1 < map[y].length ? map[y][x + 1] : "e"),
-    down: (map) => (y + 1 < map.length ? map[y + 1][x] : "e"),
-    left: (map) => (x - 1 >= 0 ? map[y][x - 1] : "e"),
-  }[dir](_map);
+    up: y - 1 >= 0 ? map[y - 1][x] : "e",
+    right: x + 1 < cols ? map[y][x + 1] : "e",
+    down: y + 1 < rows ? map[y + 1][x] : "e",
+    left: x - 1 >= 0 ? map[y][x - 1] : "e",
+  }[dir];
+
+  if (inFront === "e") return new Promise((resolve) => resolve(map));
 
   const turn = {
     up: "right",
@@ -30,8 +35,6 @@ const patrol = (_map, { x, y }, dir) => {
     down: "left",
     left: "up",
   };
-
-  if (inFront === "e") return patrolledMap;
 
   const nextPos = {
     up: { x, y: y - 1 },
@@ -41,12 +44,19 @@ const patrol = (_map, { x, y }, dir) => {
   };
 
   if (inFront === "#") {
-    return patrol(patrolledMap, nextPos[turn[dir]], turn[dir]);
+    return new Promise((resolve) =>
+      process.nextTick(() =>
+        resolve(patrol(map, nextPos[turn[dir]], turn[dir])),
+      ),
+    );
   }
 
-  return patrol(patrolledMap, nextPos[dir], dir);
-};
+  return new Promise((resolve) =>
+    process.nextTick(() => resolve(patrol(map, nextPos[dir], dir))),
+  );
+}
 
-const patrolledMap = patrol(map, startingPos, "up");
+const result = await patrol(map, startingPos, "up");
 
-console.log(patrolledMap.flatMap((x) => x).filter((x) => x === "X").length);
+// map.map((x) => console.log(x.join("")));
+console.log(result.flatMap((x) => x).filter((x) => x === "X").length);
